@@ -55,8 +55,8 @@ def calculate_ma(series, window):
 def bot_send_msg_to_line(push_content):
 
     # set your Channel Access Token 和 Channel Secret
-    CHANNEL_ACCESS_TOKEN = 'PMEPF3eu5CAULtIn0R3qLLWJqAGC1bViExmaVsWGGCNeV8dFg4f+vAAT/NrzwlZNrzElFTcw04Tjug2Dm2CSLkqYva0GpqO5+CFUdJhfPrvroKKFDAr4ibULVatjCu8Y26dP9/wfWvVSP0XecUQmLAdB04t89/1O/w1cDnyilFU='
-    CHANNEL_SECRET = '902460b17459d32f1619b86b887c009e'
+    CHANNEL_ACCESS_TOKEN = xxx
+    CHANNEL_SECRET = xxx
     channel_access_token = CHANNEL_ACCESS_TOKEN
     
     # set robot user line id ,主動推送訊息使用
