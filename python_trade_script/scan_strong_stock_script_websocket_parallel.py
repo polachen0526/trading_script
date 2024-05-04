@@ -276,9 +276,9 @@ if __name__ == "__main__":
             for future in as_completed(futures):
                 result = future.result()
                 
-                if(result["value_more_than_10_average"] == True and result["value_more_than_20_average"] == True):
+                if(result["value_more_than_10_average"] == True and result["value_more_than_20_average"] == True  and result["close_minus_open_positive"] == False):
                     value_more_than_10_and_20_average.append(result["symbol"])    
-                elif(result["value_more_than_10_average"] == True or result["value_more_than_20_average"] == True):
+                elif(result["value_more_than_10_average"] == True or result["value_more_than_20_average"] == True  and result["close_minus_open_positive"] == False):
                     value_more_than_10_or_20_average.append(result["symbol"])
                 
                 print(result["symbol"] + "-----" + result["volume"])
@@ -289,7 +289,7 @@ if __name__ == "__main__":
         send_time = datetime.datetime.now()
         formatted_time = send_time.strftime("%Y-%m-%d %H:%M:%S")
         
-        if((len(value_more_than_10_and_20_average) > 0 or len(value_more_than_10_or_20_average) > 0) and result["close_minus_open_positive"] == False):
+        if((len(value_more_than_10_and_20_average) > 0 or len(value_more_than_10_or_20_average) > 0)):
             
             # 如果收盤 - 開盤 > 0 ，那就代表現在這個爆量是上漲的，但是我希望是下跌，所以應該要False
             crypto_push_message =   formatted_time   + "\n" + \
