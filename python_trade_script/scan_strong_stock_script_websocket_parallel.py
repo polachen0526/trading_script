@@ -55,8 +55,8 @@ def calculate_ma(series, window):
 def bot_send_msg_to_line(push_content):
 
     # set your Channel Access Token 和 Channel Secret
-    CHANNEL_ACCESS_TOKEN = xxx
-    CHANNEL_SECRET = xxx
+    CHANNEL_ACCESS_TOKEN = 'PMEPF3eu5CAULtIn0R3qLLWJqAGC1bViExmaVsWGGCNeV8dFg4f+vAAT/NrzwlZNrzElFTcw04Tjug2Dm2CSLkqYva0GpqO5+CFUdJhfPrvroKKFDAr4ibULVatjCu8Y26dP9/wfWvVSP0XecUQmLAdB04t89/1O/w1cDnyilFU='
+    CHANNEL_SECRET = '902460b17459d32f1619b86b887c009e'
     channel_access_token = CHANNEL_ACCESS_TOKEN
     
     # set robot user line id ,主動推送訊息使用
@@ -155,7 +155,7 @@ def process_symbol_crypto_value(symbol,intervals,limits):
     value_more_than_20_average = False
     
     #這個代表是上漲，因為收盤-開盤是正的
-    close_minus_open_positive = False 
+    close_minus_open_positive = True 
     pre_candle = 1
 
     for interval, limit in zip(intervals, limits):
@@ -184,10 +184,13 @@ def process_symbol_crypto_value(symbol,intervals,limits):
             elif((value10.iloc[-1-pre_candle] * 3) < float(df['volume'].iloc[-1-pre_candle]) and (value20.iloc[-1-pre_candle] * 3) < float(df['volume'].iloc[-1-pre_candle])):
                 value_more_than_10_average = True
                 value_more_than_20_average = True
+            
+            #STEP 4. 確認是否下跌，收盤要小於開盤
+            close_minus_open_positive = df['close'].iloc[-1-pre_candle] >= df['open'].iloc[-1-pre_candle]
         else:
             print("df is None , Fetch %s history data fail" % symbol)
             
-        close_minus_open_positive = (float(df['close'].iloc[-1-pre_candle]) - float(df['open'].iloc[-1-pre_candle])) > 0
+        print(symbol + "----" + df['close'].iloc[-1-pre_candle] + "----" + df['open'].iloc[-1-pre_candle])
             
     return {"symbol": symbol,"value_more_than_10_average": value_more_than_10_average,"value_more_than_20_average": value_more_than_20_average,"volume":df['volume'].iloc[-1-pre_candle] , "close_minus_open_positive":close_minus_open_positive}
 
@@ -228,6 +231,7 @@ def print_target_message(target_prio_q_0,target_prio_q_1,target_prio_q_2,target_
         
         with open("scan_target_data.json" , "w") as json_file:
             json_file.write(json_string)
+            json_file.close()
 
 if __name__ == "__main__":
 
@@ -264,6 +268,7 @@ if __name__ == "__main__":
         
         with open('scan_target_data.json','r') as json_file:
             data = json.load(json_file)
+            json_file.close()
         
         symbols = []
         symbols = symbols + data["target_prio_q_0"] + data["target_prio_q_1"] + data["target_prio_q_2"] + data["target_prio_q_3"]
@@ -276,6 +281,7 @@ if __name__ == "__main__":
             for future in as_completed(futures):
                 result = future.result()
                 
+                # 如果收盤 > 開盤 ，那就代表現在這個爆量是上漲的，但是我希望是下跌，所以應該要False    
                 if(result["value_more_than_10_average"] == True and result["value_more_than_20_average"] == True  and result["close_minus_open_positive"] == False):
                     value_more_than_10_and_20_average.append(result["symbol"])    
                 elif(result["value_more_than_10_average"] == True or result["value_more_than_20_average"] == True  and result["close_minus_open_positive"] == False):
@@ -291,7 +297,6 @@ if __name__ == "__main__":
         
         if((len(value_more_than_10_and_20_average) > 0 or len(value_more_than_10_or_20_average) > 0)):
             
-            # 如果收盤 - 開盤 > 0 ，那就代表現在這個爆量是上漲的，但是我希望是下跌，所以應該要False
             crypto_push_message =   formatted_time   + "\n" + \
                                     "交易所 : 幣安\n" + \
                                     "交易對 : 合約\n" + \
