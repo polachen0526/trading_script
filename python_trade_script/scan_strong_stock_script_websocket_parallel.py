@@ -50,13 +50,24 @@ def calculate_ema(series, window):
 def calculate_ma(series, window):
     return series.rolling(window=window).mean()
 
-
 #################################################################### POST LINE AND EMAIL FUNC #############################################################################
+def bot_send_msg_to_line_notify(push_content):
+    url = 'https://notify-api.line.me/api/notify'
+    token = 'BBrlVfbt7FtzWxWojnXgcKDCctM8qXqlrA9tagrWPOI'
+    headers = {
+        'Authorization': 'Bearer ' + token    # 設定權杖
+    }
+    data = {
+        'message':"\n" + push_content     # 設定要發送的訊息
+    }
+    data = requests.post(url, headers=headers, data=data)   # 使用 POST 方法
+    
+    print("push data to line-bot-notify success")
 def bot_send_msg_to_line(push_content):
 
     # set your Channel Access Token 和 Channel Secret
-    CHANNEL_ACCESS_TOKEN = 'xxx'
-    CHANNEL_SECRET = 'xxx'
+    CHANNEL_ACCESS_TOKEN = 'PMEPF3eu5CAULtIn0R3qLLWJqAGC1bViExmaVsWGGCNeV8dFg4f+vAAT/NrzwlZNrzElFTcw04Tjug2Dm2CSLkqYva0GpqO5+CFUdJhfPrvroKKFDAr4ibULVatjCu8Y26dP9/wfWvVSP0XecUQmLAdB04t89/1O/w1cDnyilFU='
+    CHANNEL_SECRET = '902460b17459d32f1619b86b887c009e'
     channel_access_token = CHANNEL_ACCESS_TOKEN
     
     # set robot user line id ,主動推送訊息使用
@@ -72,6 +83,7 @@ def bot_send_msg_to_line(push_content):
     line_bot_api.push_message(user_id, messages=message)
     
     print("push data to line-bot success")
+    
     
 def bot_send_msg_to_email(push_content):
     # send gmail setting
@@ -270,7 +282,8 @@ if __name__ == "__main__":
             data = json.load(json_file)
             json_file.close()
         
-        symbols = []
+        #預設大盤走勢，給USER自己設定
+        symbols = ["BTCUSDT","ETHUSDT"]
         symbols = symbols + data["target_prio_q_0"] + data["target_prio_q_1"] + data["target_prio_q_2"] + data["target_prio_q_3"]
         
         with ThreadPoolExecutor(max_workers=2) as executor:
@@ -282,9 +295,9 @@ if __name__ == "__main__":
                 result = future.result()
                 
                 # 如果收盤 > 開盤 ，那就代表現在這個爆量是上漲的，但是我希望是下跌，所以應該要False    
-                if(result["value_more_than_10_average"] == True and result["value_more_than_20_average"] == True  and result["close_minus_open_positive"] == False):
+                if((result["value_more_than_10_average"] == True and result["value_more_than_20_average"] == True)  and result["close_minus_open_positive"] == False):
                     value_more_than_10_and_20_average.append(result["symbol"])    
-                elif(result["value_more_than_10_average"] == True or result["value_more_than_20_average"] == True  and result["close_minus_open_positive"] == False):
+                elif((result["value_more_than_10_average"] == True or result["value_more_than_20_average"] == True)  and result["close_minus_open_positive"] == False):
                     value_more_than_10_or_20_average.append(result["symbol"])
                 
                 print(result["symbol"] + "-----" + result["volume"])
@@ -306,13 +319,13 @@ if __name__ == "__main__":
                                     "2. -----15分下殺爆量大於10 or 20----- \n" + \
                                     string_value_more_than_10_or_20_average
 
-            bot_send_msg_to_line(push_content=crypto_push_message)
+            bot_send_msg_to_line_notify(push_content=crypto_push_message)
             
         else:
             crypto_push_message =   formatted_time   + "\n" + \
                                     "沒有強勢幣種下殺在15mins\n"
 
-            bot_send_msg_to_line(push_content=crypto_push_message)
+            bot_send_msg_to_line_notify(push_content=crypto_push_message)
         
     
     #each 4hour detect ones
@@ -382,4 +395,4 @@ if __name__ == "__main__":
                                 "6. -----反轉且強勢 1d,4hr,1hr----- \n" + \
                                 string_target_prio_q_5
 
-        bot_send_msg_to_line(push_content=crypto_push_message)
+        bot_send_msg_to_line_notify(push_content=crypto_push_message)
