@@ -78,17 +78,19 @@ def calculate_growth_percent(df,interval):
 
     for i in range(time_count):
         
-        if(len(df) < time_count):
-            growth_percent[i, :] = 0
-            continue
+        try:    
+            current = df.iloc[-i-1]
+            prev_1 = df.iloc[-i-2]
             
-        current = df.iloc[-i-1]
-        prev_1 = df.iloc[-i-2]
-        
-        # 計算增長百分比
-        growth_percent[i, 0] = ((current['ma_30'] - prev_1['ma_30']) / prev_1['ma_30']) * 100
-        growth_percent[i, 1] = ((current['ma_45'] - prev_1['ma_45']) / prev_1['ma_45']) * 100
-        growth_percent[i, 2] = ((current['ma_60'] - prev_1['ma_60']) / prev_1['ma_60']) * 100
+            # 計算增長百分比
+            growth_percent[i, 0] = ((current['ma_30'] - prev_1['ma_30']) / prev_1['ma_30']) * 100
+            growth_percent[i, 1] = ((current['ma_45'] - prev_1['ma_45']) / prev_1['ma_45']) * 100
+            growth_percent[i, 2] = ((current['ma_60'] - prev_1['ma_60']) / prev_1['ma_60']) * 100
+            
+        except IndexError:
+            growth_percent[i, 0] = 0
+            growth_percent[i, 1] = 0
+            growth_percent[i, 2] = 0    
 
     return growth_percent
 
@@ -118,7 +120,18 @@ def bot_send_pic_to_line_notify(push_content):
     response = requests.post(url, headers=headers, files=files, data={'message': message})
     
     print("push pic to line-bot-notify success")
-    
+
+def post_value_change_msg_to_flask_server(push_content):
+    url = 'http://192.168.68.67:5000/value_cmd'
+    data = {
+        "text":push_content
+    }
+    headers = {
+        "Content-Type":"application/json"
+    }
+    response = requests.post(url,json=data,headers=headers)
+    print(response.status_code)
+
 def bot_send_msg_to_line_notify(push_content):
     url = 'https://notify-api.line.me/api/notify'
     token = config['credentials']['line_notify_token']
@@ -276,7 +289,7 @@ def process_symbol_crypto_value(symbol,intervals,limits):
             #STEP 3. MOVING AVERAGE CHECK
             #check ema 30 > 45 > 60，多頭排列，並且確認當前價格不可以低於60均線，否則失去了多頭保護的意義，必須退到下一個時間軸作保護
             #example :: 八小時 ema 30>45>60，但是如果當前價格沒有大於60 MA，代表已經跌破了，必須拉到下一個TARGET_PRIO_Q 2->3
-            threshold_value = 3
+            threshold_value = 3.5
             if((value10.iloc[-1-pre_candle] * threshold_value) > float(df['volume'].iloc[-1-pre_candle]) and (value20.iloc[-1-pre_candle] * threshold_value) > float(df['volume'].iloc[-1-pre_candle])):
                 value_more_than_10_average = False
                 value_more_than_20_average = False
@@ -349,10 +362,23 @@ def print_target_message(target_prio_q_0,target_prio_q_1,target_prio_q_2,target_
         with open("scan_target_data.json" , "w") as json_file:
             json_file.write(json_string)
             json_file.close()
+            
+def pad_array_to_num(arr, length):
+    # 檢查陣列長度，並補上空字串至指定長度
+    while len(arr) < length:
+        arr.append("NaN")
+
+
 def pre_calc_visualize_colored_table(data_1d , data_8h , data_4h , data_1h):
+    
+    pad_array_to_num(data_1d,10)
+    pad_array_to_num(data_8h,10)
+    pad_array_to_num(data_4h,10)
+    pad_array_to_num(data_1h,10)
+    
     # 計算出現次數
     all_data = data_1d + data_8h + data_4h + data_1h
-    counter = Counter(all_data)
+    counter = Counter([x for x in all_data if x != "NaN"])  # 不計算空字串
 
     # 創建表格
     df = pd.DataFrame({
@@ -372,8 +398,10 @@ def pre_calc_visualize_colored_table(data_1d , data_8h , data_4h , data_1h):
 
     # 根據出現次數進行著色
     def get_color(name):
-        count = counter[name]
-        return colors[count]
+        if name == "NaN":
+            return "#FFFFFF"  # 保持空字串的背景為白色
+        count = counter.get(name, 0)
+        return colors.get(count, "#FFFFFF")  # 如果出現次數不在定義範圍內，返回空字串
 
     # 創建一個帶有顏色的數據框
     df_colored = df.applymap(lambda x: get_color(x))
@@ -416,11 +444,14 @@ def visualize_colored_table(df, df_colored):
     pic_name = 'colored_table.png'
     return pic_name
 
+def filter_symbols(symbols):
+    return [symbol for symbol in symbols if symbol not in blacklist]
+
 if __name__ == "__main__":
 
     # time config
     intervals   = ["1d", "8h", "4h", "1h"]
-    limits      = [60, 240, 480, 1440]              
+    limits      = [120, 240, 480, 1440]              
     
     # take value only time config
     value_only_intervals   = ["15m"]
@@ -456,6 +487,9 @@ if __name__ == "__main__":
     config = configparser.ConfigParser()
     config.read(config_path)
     
+    # 定义黑名单列表
+    blacklist = ["USTCUSDT", "BTCDOMUSDT" , "USDCUSDT"]
+    
     # code testing
     pola_testing = 0
     
@@ -473,17 +507,20 @@ if __name__ == "__main__":
         #預設大盤走勢，給USER自己設定
         symbols = ["BTCUSDT","ETHUSDT"]
         symbols =   symbols + \
-                    data["target_prio_q_0"] + \
-                    data["target_prio_q_1"] + \
-                    data["target_prio_q_2"] + \
-                    data["target_prio_q_3"] + \
                     data["target_prio_q_4_trend_reversal"] + \
                     data["target_prio_q_5_trend_reversal"] + \
                     data["target_prio_q_6_trend_reversal"] + \
                     data["target_prio_q_7_trend_reversal"]
+                    #data["target_prio_q_0"] + \
+                    #data["target_prio_q_1"] + \
+                    #data["target_prio_q_2"] + \
+                    #data["target_prio_q_3"] + \
                     #data["target_prio_q_8_trend_reversal"] + \
                     #data["target_prio_q_9_trend_reversal"]
         symbols = list(set(symbols))
+        
+        # 过滤黑名单中的符号
+        symbols = filter_symbols(symbols)
         
         with ThreadPoolExecutor(max_workers=2) as executor:
             # 提交任務並平行執行
@@ -507,24 +544,26 @@ if __name__ == "__main__":
         send_time = datetime.datetime.now()
         formatted_time = send_time.strftime("%Y-%m-%d %H:%M:%S")
         
-        if((len(value_more_than_10_and_20_average) > 0 or len(value_more_than_10_or_20_average) > 0)):
+        if((len(value_more_than_10_and_20_average) > 0)):
             
             crypto_push_message =   formatted_time   + "\n" + \
                                     "交易所 : 幣安\n" + \
                                     "交易對 : 合約\n" + \
                                     "時間序 : 1hr,4hr,8hr,1d\n" + \
-                                    "1. -----15分下殺爆量大於10 and 20----- \n" + \
-                                    string_value_more_than_10_and_20_average + "\n" + \
-                                    "2. -----15分下殺爆量大於10 or 20----- \n" + \
-                                    string_value_more_than_10_or_20_average
+                                    "-----印鈔機20號----- \n" + \
+                                    string_value_more_than_10_and_20_average + "\n"
+                                    #"2. -----15分K下殺爆量，大於10 or 20根平均成交量----- \n" + \
+                                    #string_value_more_than_10_or_20_average
 
             bot_send_msg_to_line_notify(push_content=crypto_push_message)
+            post_value_change_msg_to_flask_server(push_content=crypto_push_message)
             
         else:
             crypto_push_message =   formatted_time   + "\n" + \
                                     "沒有強勢幣種下殺在15mins\n"
 
             bot_send_msg_to_line_notify(push_content=crypto_push_message)
+            post_value_change_msg_to_flask_server(push_content=crypto_push_message)
         
     
     #each 4hour detect ones
