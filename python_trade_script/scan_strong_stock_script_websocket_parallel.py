@@ -531,10 +531,11 @@ if __name__ == "__main__":
                 result = future.result()
                 
                 # 如果收盤 > 開盤 ，那就代表現在這個爆量是上漲的，但是我希望是下跌，所以應該要False    
-                if((result["value_more_than_10_average"] == True and result["value_more_than_20_average"] == True)  and result["close_minus_open_positive"] == False):
-                    value_more_than_10_and_20_average.append(result["symbol"])    
-                elif((result["value_more_than_10_average"] == True or result["value_more_than_20_average"] == True)  and result["close_minus_open_positive"] == False):
-                    value_more_than_10_or_20_average.append(result["symbol"])
+                if(result["close_minus_open_positive"] == False):
+                    if((result["value_more_than_10_average"] == True and result["value_more_than_20_average"] == True)):
+                        value_more_than_10_and_20_average.append(result["symbol"])    
+                    elif((result["value_more_than_10_average"] == True or result["value_more_than_20_average"] == True)):
+                        value_more_than_10_or_20_average.append(result["symbol"])
                 
                 print(result["symbol"] + "-----" + result["volume"])
                 
